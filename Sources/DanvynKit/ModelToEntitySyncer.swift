@@ -58,7 +58,7 @@ public actor ModelToEntitySyncer<ModelType: Equatable>
             }
         }
         
-        for (id, model) in toRemove
+        for (id, _) in toRemove
         {
             let ent = entities[id]!
             await ent.removeFromParent()
