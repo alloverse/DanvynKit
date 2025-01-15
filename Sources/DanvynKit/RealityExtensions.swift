@@ -71,3 +71,28 @@ public extension Entity
         return components[type] ?? self.parent?.findAncestorComponent(ofType: type)
     }
 }
+
+/// RealityView vends different types for `content` on macOS and visionOS. Unify them to avoid `if os(visionOS)` all over the code base.
+public extension RealityViewContentProtocol
+{
+    public func project(point: SIMD3<Float>, to space: some CoordinateSpaceProtocol) -> CGPoint?
+    {
+#if os(visionOS)
+        return nil
+#else
+        let actualSelf = self as! RealityViewCameraContent
+        return actualSelf.project(point: point, to: space)
+#endif
+    }
+    
+    public func unproject(_ point: CGPoint, from space: some CoordinateSpaceProtocol, to realitySpace: some RealityCoordinateSpace, ontoPlane: float4x4) -> SIMD3<Float>?
+    {
+#if os(visionOS)
+        // TODO: Could implement this with a raycast? https://developer.apple.com/documentation/realitykit/scene/raycast(origin:direction:length:query:mask:relativeto:)
+        return nil
+#else
+        let actualSelf = self as! RealityViewCameraContent
+        return actualSelf.unproject(point, from: space, to: realitySpace, ontoPlane: ontoPlane)
+#endif
+    }
+}

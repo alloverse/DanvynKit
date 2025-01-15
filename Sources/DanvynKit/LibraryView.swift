@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import RealityKit
 
 /// An item in a library that the user can drag'n'drop or tap to add to the current scene.
 public protocol LibraryItem : Equatable, Identifiable, Codable, Transferable
@@ -27,7 +28,7 @@ public struct Library<VendedType: LibraryItem> : Equatable
 }
 
 /// A Library, to be presented in a Window, which allows the user to drag'n'drop items into a scene (or tap them to have them added to the middle of the scene).
-/// You probably want to subclass it and manage your contents somehow.
+/// Use LibraryWindow in your App's Scene to present it in a uniform manner across platforms.
 public struct LibraryView<VendedType: LibraryItem> : View
 {
     public var contents: Library<VendedType>
@@ -58,7 +59,7 @@ public struct LibraryView<VendedType: LibraryItem> : View
 }
 
 /// Convenience constructor which makes a pretty Library window suitable for the current platform.
-public func LibraryWindow<VendedType: LibraryItem>(name: String, id: String, contents: Library<VendedType>) -> some Scene
+public func LibraryWindow<VendedType: LibraryItem>(name: String, id: String, contents: Library<VendedType>) -> some SwiftUI.Scene
 {
 #if os(macOS)
         Window(name, id: id) {
@@ -77,3 +78,61 @@ public func LibraryWindow<VendedType: LibraryItem>(name: String, id: String, con
         }
 #endif
 }
+
+
+extension View
+{
+    /**
+        Make the receiver a drag'n'drop destination for a model vended through a LibraryView.
+        
+        Sorry about the hack with contentProvider. If i rewrite this using raycasting in the future, this parameter will
+        disappear, but then `plane` will have to have a `CollisionComponent`.
+        
+        Example usage:
+        ```
+            @State private var isBeingDropped = false
+            RealityView { ... }
+            .libraryDestination(for: RoomTemplate.self, onto: model.roomRoot, in: { model.content! } )
+            { items, roompos in
+                guard let template = items.first else { return false }
+                state.place.addRoom(from: template, at: SIMD2(roompos.x, roompos.z))
+                return true
+            } isTargeted: { inDropArea in
+                isBeingDropped = inDropArea
+            }
+            .border(
+                isBeingDropped ? Color.accentColor : Color.clear,
+                width: isBeingDropped ? 4.0 : 0.0
+            )
+        ```
+    */
+    nonisolated public func libraryDestination<VendedType: LibraryItem>(
+        for payloadType: VendedType.Type = VendedType.self,
+        onto plane: Entity,
+        in contentProvider: @escaping () -> any RealityViewContentProtocol,
+        action: @escaping (_ items: [VendedType], _ position: SIMD3<Float>) -> Bool,
+        isTargeted: @escaping (Bool) -> Void = { _ in }
+    )  -> some View
+    {
+        // TODO: Wait, is this even library specific? Should this be an extension on RealityView instead, since all it really does is converting coordinate systems to the RealityView scene's space?
+        
+        return self.dropDestination(for: payloadType)
+        { items, location in
+            // TODO: Either figure out how to do this with a raycast here, or implement it in RealityExtensions
+            let scenepos = contentProvider().unproject(
+                location,
+                from: .local,
+                to: .scene,
+                ontoPlane: plane.transformMatrix(relativeTo: nil)
+            ) ?? .zero
+            let roompos = plane.convert(position: scenepos, from: nil)
+            
+            return action(items, roompos)
+        } isTargeted: { inDropArea in
+            isTargeted(inDropArea)
+        }
+        
+        // TODO: Also hook it up somehow so you can TAP the entry in library and have that call `action`.
+    }
+}
+
