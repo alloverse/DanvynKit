@@ -35,8 +35,8 @@ public actor ModelToEntitySyncer<ModelType: Equatable>
     public func sync(
         listOfModels newList: [String: ModelType],
         asChildrenOf parent: Entity,
-        add: @escaping (ModelType) async -> Entity,
-        update: @escaping (ModelType, Entity) -> Void,
+        add: @escaping @MainActor (ModelType) async -> Entity,
+        update: @escaping @MainActor (ModelType, Entity) -> Void,
         forceUpdates: Bool = false
     ) async
     {
@@ -58,7 +58,7 @@ public actor ModelToEntitySyncer<ModelType: Equatable>
                 {
                     let ent = await add(model)
                     await self.saveToCache(entity: ent, at: id)
-                    update(model, ent)
+                    await update(model, ent)
                     await parent.addChild(ent)
                 }
             }
@@ -69,7 +69,7 @@ public actor ModelToEntitySyncer<ModelType: Equatable>
             let ent = entities[id]
             if let ent
             {
-                update(model, ent)
+                await update(model, ent)
             }
         }
         
