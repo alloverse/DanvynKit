@@ -75,7 +75,7 @@ public extension Entity
 /// RealityView vends different types for `content` on macOS and visionOS. Unify them to avoid `if os(visionOS)` all over the code base.
 public extension RealityViewContentProtocol
 {
-    public func project(point: SIMD3<Float>, to space: some CoordinateSpaceProtocol) -> CGPoint?
+    func project(point: SIMD3<Float>, to space: some CoordinateSpaceProtocol) -> CGPoint?
     {
 #if os(visionOS)
         return nil
@@ -85,7 +85,7 @@ public extension RealityViewContentProtocol
 #endif
     }
     
-    public func unproject(_ point: CGPoint, from space: some CoordinateSpaceProtocol, to realitySpace: some RealityCoordinateSpace, ontoPlane: float4x4) -> SIMD3<Float>?
+    func unproject(_ point: CGPoint, from space: some CoordinateSpaceProtocol, to realitySpace: some RealityCoordinateSpace, ontoPlane: float4x4) -> SIMD3<Float>?
     {
 #if os(visionOS)
         // TODO: Could implement this with a raycast? https://developer.apple.com/documentation/realitykit/scene/raycast(origin:direction:length:query:mask:relativeto:)
@@ -124,7 +124,7 @@ public extension View
         )
         ```
     */
-    nonisolated public func dropDestination3D<VendedType: Transferable>(
+    nonisolated func dropDestination3D<VendedType: Transferable>(
         for payloadType: VendedType.Type = VendedType.self,
         onto plane: Entity,
         in contentProvider: @escaping () -> any RealityViewContentProtocol,
