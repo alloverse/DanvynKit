@@ -79,60 +79,11 @@ public func LibraryWindow<VendedType: LibraryItem>(name: String, id: String, con
 #endif
 }
 
+/**
+    You can use either dropDestination() or this library's dropDestination3D to receive a model vended through a LibraryView.
+ */
 
-extension View
-{
-    /**
-        Make the receiver a drag'n'drop destination for a model vended through a LibraryView.
-        
-        Sorry about the hack with contentProvider. If i rewrite this using raycasting in the future, this parameter will
-        disappear, but then `plane` will have to have a `CollisionComponent`.
-        
-        Example usage:
-        ```
-            @State private var isBeingDropped = false
-            RealityView { ... }
-            .libraryDestination(for: RoomTemplate.self, onto: model.roomRoot, in: { model.content! } )
-            { items, roompos in
-                guard let template = items.first else { return false }
-                state.place.addRoom(from: template, at: SIMD2(roompos.x, roompos.z))
-                return true
-            } isTargeted: { inDropArea in
-                isBeingDropped = inDropArea
-            }
-            .border(
-                isBeingDropped ? Color.accentColor : Color.clear,
-                width: isBeingDropped ? 4.0 : 0.0
-            )
-        ```
-    */
-    nonisolated public func libraryDestination<VendedType: LibraryItem>(
-        for payloadType: VendedType.Type = VendedType.self,
-        onto plane: Entity,
-        in contentProvider: @escaping () -> any RealityViewContentProtocol,
-        action: @escaping (_ items: [VendedType], _ position: SIMD3<Float>) -> Bool,
-        isTargeted: @escaping (Bool) -> Void = { _ in }
-    )  -> some View
-    {
-        // TODO: Wait, is this even library specific? Should this be an extension on RealityView instead, since all it really does is converting coordinate systems to the RealityView scene's space?
-        
-        return self.dropDestination(for: payloadType)
-        { items, location in
-            // TODO: Either figure out how to do this with a raycast here, or implement it in RealityExtensions
-            let scenepos = contentProvider().unproject(
-                location,
-                from: .local,
-                to: .scene,
-                ontoPlane: plane.transformMatrix(relativeTo: nil)
-            ) ?? .zero
-            let roompos = plane.convert(position: scenepos, from: nil)
-            
-            return action(items, roompos)
-        } isTargeted: { inDropArea in
-            isTargeted(inDropArea)
-        }
-        
-        // TODO: Also hook it up somehow so you can TAP the entry in library and have that call `action`.
-    }
-}
+// TODO: Also hook dropDestination3D() up somehow so you can TAP the entry in library and have that call `action`? Or actually do have a libraryDestination that does both?
+
+
 

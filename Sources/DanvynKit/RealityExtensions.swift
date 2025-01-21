@@ -96,3 +96,57 @@ public extension RealityViewContentProtocol
 #endif
     }
 }
+
+public extension View
+{
+    /**
+        Like `dropDestination`, except with a 3D location into a Volume if on visionOS.
+        Make the receiver a drag'n'drop destination for a transferrable type, with an additional 3D location.
+        
+        Sorry about the hack with contentProvider. If i rewrite this using raycasting in the future, this parameter will
+        disappear, but then `plane` will have to have a `CollisionComponent`.
+        
+        Example usage:
+        ```
+        @State private var isBeingDropped = false
+        RealityView { ... }
+        .dropDestination3D(for: RoomTemplate.self, onto: model.roomRoot, in: { model.content! } )
+        { items, roompos in
+            guard let template = items.first else { return false }
+            state.place.addRoom(from: template, at: SIMD2(roompos.x, roompos.z))
+            return true
+        } isTargeted: { inDropArea in
+            isBeingDropped = inDropArea
+        }
+        .border(
+            isBeingDropped ? Color.accentColor : Color.clear,
+            width: isBeingDropped ? 4.0 : 0.0
+        )
+        ```
+    */
+    nonisolated public func dropDestination3D<VendedType: Transferable>(
+        for payloadType: VendedType.Type = VendedType.self,
+        onto plane: Entity,
+        in contentProvider: @escaping () -> any RealityViewContentProtocol,
+        action: @escaping (_ items: [VendedType], _ position: SIMD3<Float>) -> Bool,
+        isTargeted: @escaping (Bool) -> Void = { _ in }
+    )  -> some View
+    {
+        return self.dropDestination(for: payloadType)
+        { items, location in
+            // TODO: Either figure out how to do this with a raycast here, or implement it in RealityExtensions
+            let scenepos = contentProvider().unproject(
+                location,
+                from: .local,
+                to: .scene,
+                ontoPlane: plane.transformMatrix(relativeTo: nil)
+            ) ?? .zero
+            let roompos = plane.convert(position: scenepos, from: nil)
+            
+            return action(items, roompos)
+        } isTargeted: { inDropArea in
+            isTargeted(inDropArea)
+        }
+    }
+}
+
