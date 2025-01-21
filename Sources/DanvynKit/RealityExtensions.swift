@@ -132,6 +132,7 @@ public extension View
         isTargeted: @escaping (Bool) -> Void = { _ in }
     )  -> some View
     {
+        // TODO: Use DropDelegate to get continuously updating drop positions, and ask the user of this API to display a 3D proxy icon inside of their drop entity.
         return self.dropDestination(for: payloadType)
         { items, location in
             // TODO: Either figure out how to do this with a raycast here, or implement it in RealityExtensions
