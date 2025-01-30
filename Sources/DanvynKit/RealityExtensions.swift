@@ -151,3 +151,35 @@ public extension View
     }
 }
 
+extension Transform {
+    /// Creates a Transform that positions an object at `origin` and orients
+    /// it so that its -Z axis faces `target`, using `up` as the world up-direction.
+    /// Shamelessly "created" with ChatGPT o1
+    public static func look(at target: SIMD3<Float>,
+                       from origin: SIMD3<Float>,
+                       up: SIMD3<Float> = [0, 1, 0]) -> Transform
+    {
+        // 1. Compute the forward vector from origin to target
+        let forward = simd_normalize(target - origin)
+        
+        // 2. RealityKit typically treats -Z as "forward," so invert:
+        let lookForward = -forward
+        
+        // 3. Compute a right vector by crossing up with forward
+        let right = simd_normalize(simd_cross(up, lookForward))
+        
+        // 4. Compute a real up vector orthonormal to (right, lookForward)
+        let realUp = simd_cross(lookForward, right)
+        
+        // 5. Build a rotation matrix using these axis vectors:
+        //    columns = ( right, up, forward ), last col is translation
+        var matrix = matrix_identity_float4x4
+        matrix.columns.0 = SIMD4<Float>( right,   0)
+        matrix.columns.1 = SIMD4<Float>( realUp,  0)
+        matrix.columns.2 = SIMD4<Float>( lookForward, 0)
+        matrix.columns.3 = SIMD4<Float>( origin,  1)
+        
+        // 6. Return a Transform from that 4x4 matrix
+        return Transform(matrix: matrix)
+    }
+}
