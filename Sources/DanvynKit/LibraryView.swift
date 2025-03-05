@@ -20,62 +20,128 @@ public protocol LibraryItem : Equatable, Identifiable, Codable, Transferable
 /// A list of items that the LibraryView contains
 public struct Library<VendedType: LibraryItem> : Equatable
 {
-    public let items: [VendedType]
-    public init(items: [VendedType])
+    public let title: String // TODO: LocalizedStringKey or similar
+    public let systemImageName: String
+    public let sections: [Section]
+
+    public struct Section: Equatable, Identifiable {
+        public init(id: String = UUID().uuidString, title: String, items: [VendedType]) {
+            self.title = title
+            self.items = items
+            self.id = id
+        }
+
+        public let id: String
+        public let title: String
+        public let items: [VendedType]
+    }
+
+    public init(title: String = "Library", systemImageName: String, items: [VendedType])
     {
-        self.items = items
+        self.title = title
+        self.sections = [Section(title: title, items: items)]
+        self.systemImageName = systemImageName
+    }
+
+    public init(title: String = "Library", systemImageName: String, sections: [Section]) {
+        self.title = title
+        self.sections = sections
+        self.systemImageName = systemImageName
     }
 }
 
-/// A Library, to be presented in a Window, which allows the user to drag'n'drop items into a scene (or tap them to have them added to the middle of the scene).
-/// Use LibraryWindow in your App's Scene to present it in a uniform manner across platforms.
-public struct LibraryView<VendedType: LibraryItem> : View
-{
-    public var contents: Library<VendedType>
+/// A view for displaying a single library of items, which can be dragged out to a destination window.
+struct LibraryView<VendedType: LibraryItem>: View {
+
+    public var library: Library<VendedType>
+
     public var body: some View {
-        VStack {
-            ForEach(contents.items)
-            { template in
-                VStack {
-                    // Model3D(named: template.iconAsset) only on visionOS
-                    Image(template.iconAsset)
-                        .resizable()
-                        .frame(width: 64, height: 64)
-                    Text(template.name)
+        ScrollView(.vertical) {
+            LazyVGrid(columns: [GridItem(.flexible(minimum: 80.0)), GridItem(.flexible(minimum: 80.0))],
+                      alignment: .center, spacing: 20.0) {
+                ForEach(library.sections) { section in
+                    Section {
+                        ForEach(section.items) { item in
+                            VStack(alignment: .center) {
+                                Image(item.iconAsset)
+                                    .resizable()
+                                    .frame(width: 64, height: 64)
+                                Text(item.name)
+                                    .lineLimit(1, reservesSpace: true)
+                                    .multilineTextAlignment(.center)
+                            }
+                            .padding(.vertical)
+                            .frame(maxWidth: .infinity)
+                            #if os(visionOS)
+                            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20.0))
+                            #endif
+                            .padding(.horizontal, 8.0)
+                            .draggable(item)
+                        }
+                    } header: {
+                        HStack {
+                            #if os(visionOS)
+                            Spacer(minLength: 0.0)
+                            #endif
+                            Text(section.title)
+                                .font(.system(size: 13.0, weight: .bold))
+                                .padding(.vertical, 4.0)
+                            Spacer(minLength: 0.0)
+                        }
+                        #if !os(visionOS)
+                        .background(.windowBackground.opacity(0.95))
+                        #endif
+                    }
                 }
-                .padding()
-                .cornerRadius(12)
-                .overlay() {
-                    RoundedRectangle(cornerRadius: 12)
-                        .stroke(.black.opacity(0.1), lineWidth: 1)
-                }
-                
-                .frame(width: 128, height: 128)
-                .draggable(template)
             }
+            .padding()
         }
-        .background(Color.black.opacity(0.3))
+        .frame(minWidth: 220.0, maxWidth: 400.0)
+    }
+}
+
+/// A view for displaying one or more libraries. If more than one library is given, the libraries will be displayed
+/// inside a tab view. Otherwise, the library will be displayed directly.
+struct LibrariesView<VendedType: LibraryItem>: View {
+
+    let libraries: [Library<VendedType>]
+
+    var body: some View {
+        if libraries.count == 1 {
+            LibraryView(library: libraries[0])
+        } else {
+            TabView {
+                ForEach(libraries, id: \.title) { library in
+                    Tab(library.title, systemImage: library.systemImageName) {
+                        LibraryView(library: library)
+                    }
+                }
+            }
+            .frame(minWidth: 220.0, maxWidth: 400.0)
+        }
     }
 }
 
 /// Convenience constructor which makes a pretty Library window suitable for the current platform.
-public func LibraryWindow<VendedType: LibraryItem>(name: String, id: String, contents: Library<VendedType>) -> some SwiftUI.Scene
+public func LibraryWindow<VendedType: LibraryItem>(name: String, id: String, contents: Library<VendedType>) -> some SwiftUI.Scene {
+    LibraryWindow(name: name, id: id, contents: [contents])
+}
+
+public func LibraryWindow<VendedType: LibraryItem>(name: String, id: String, contents: [Library<VendedType>]) -> some SwiftUI.Scene
 {
 #if os(macOS)
-        Window(name, id: id) {
-            LibraryView<VendedType>(contents: contents)
-                .containerBackground(.ultraThinMaterial, for: .window)
-        }
-        .windowResizability(.contentSize)
-        .restorationBehavior(.disabled)
-        .defaultWindowPlacement { content, context in
-            return WindowPlacement(.trailing)
-        }
+    Window(name, id: id) {
+        LibrariesView(libraries: contents)
+    }
+    .windowResizability(.contentSize)
+    .restorationBehavior(.disabled)
+    .defaultWindowPlacement { content, context in
+        return WindowPlacement(.trailing)
+    }
 #else
-        WindowGroup(id: id) {
-            LibraryView<VendedType>(contents: contents)
-                // TODO: make it nice
-        }
+    WindowGroup(id: id) {
+        LibrariesView(libraries: contents)
+    }
 #endif
 }
 
